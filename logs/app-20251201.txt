@@ -1,0 +1,79 @@
+2025-12-01 13:28:34.615 +05:30 [INF] User profile is available. Using 'C:\Users\Biki\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-12-01 13:28:34.682 +05:30 [INF] Starting web host with BP + BMI calculators. Environment: Development
+2025-12-01 13:28:34.785 +05:30 [INF] Now listening on: http://localhost:5000
+2025-12-01 13:28:34.788 +05:30 [INF] Application started. Press Ctrl+C to shut down.
+2025-12-01 13:28:34.789 +05:30 [INF] Hosting environment: Development
+2025-12-01 13:28:34.789 +05:30 [INF] Content root path: D:\FORM_DHS\UI_DESIGN_HELLO_WORLD\temp\Naveen_Assignments\bp-calculator
+2025-12-01 13:28:41.398 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/ - null null
+2025-12-01 13:28:41.407 +05:30 [WRN] Failed to determine the https port for redirect.
+2025-12-01 13:28:41.429 +05:30 [INF] Executing endpoint '/Index'
+2025-12-01 13:28:41.448 +05:30 [INF] Route matched with {page = "/Index"}. Executing page /Index
+2025-12-01 13:28:41.456 +05:30 [INF] Executing handler method BPCalculator.Pages.BloodPressureModel.OnGet - ModelState is "Valid"
+2025-12-01 13:28:41.459 +05:30 [INF] Executed handler method OnGet, returned result .
+2025-12-01 13:28:41.465 +05:30 [INF] Executing an implicit handler method - ModelState is "Valid"
+2025-12-01 13:28:41.466 +05:30 [INF] Executed an implicit handler method, returned result Microsoft.AspNetCore.Mvc.RazorPages.PageResult.
+2025-12-01 13:28:41.564 +05:30 [INF] Executed page /Index in 113.2422ms
+2025-12-01 13:28:41.578 +05:30 [INF] Executed endpoint '/Index'
+2025-12-01 13:28:41.581 +05:30 [INF] API GET / -> 200 in 174ms
+2025-12-01 13:28:41.586 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/ - 200 null text/html; charset=utf-8 190.0671ms
+2025-12-01 13:28:41.620 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/lib/bootstrap/dist/css/bootstrap.min.css - null null
+2025-12-01 13:28:41.622 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/css/site.css - null null
+2025-12-01 13:28:41.623 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/lib/jquery/dist/jquery.min.js - null null
+2025-12-01 13:28:41.625 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/lib/bootstrap/dist/js/bootstrap.bundle.min.js - null null
+2025-12-01 13:28:41.628 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/js/site.js?v=dLGP40S79Xnx6GqUthRF6NWvjvhQ1nOvdVSwaNcgG18 - null null
+2025-12-01 13:28:41.628 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/lib/jquery-validation/dist/jquery.validate.min.js - null null
+2025-12-01 13:28:41.636 +05:30 [INF] The file /lib/jquery/dist/jquery.min.js was not modified
+2025-12-01 13:28:41.638 +05:30 [INF] Sending file. Request path: '/css/site.css'. Physical path: 'D:\FORM_DHS\UI_DESIGN_HELLO_WORLD\temp\Naveen_Assignments\bp-calculator\wwwroot\css\site.css'
+2025-12-01 13:28:41.639 +05:30 [INF] The file /lib/bootstrap/dist/js/bootstrap.bundle.min.js was not modified
+2025-12-01 13:28:41.644 +05:30 [INF] Sending file. Request path: '/lib/bootstrap/dist/css/bootstrap.min.css'. Physical path: 'D:\FORM_DHS\UI_DESIGN_HELLO_WORLD\temp\Naveen_Assignments\bp-calculator\wwwroot\lib\bootstrap\dist\css\bootstrap.min.css'
+2025-12-01 13:28:41.644 +05:30 [INF] Sending file. Request path: '/js/site.js'. Physical path: 'D:\FORM_DHS\UI_DESIGN_HELLO_WORLD\temp\Naveen_Assignments\bp-calculator\wwwroot\js\site.js'
+2025-12-01 13:28:41.647 +05:30 [INF] The file /lib/jquery-validation/dist/jquery.validate.min.js was not modified
+2025-12-01 13:28:41.647 +05:30 [INF] API GET /lib/jquery/dist/jquery.min.js -> 304 in 13ms
+2025-12-01 13:28:41.649 +05:30 [INF] API GET /css/site.css -> 200 in 17ms
+2025-12-01 13:28:41.650 +05:30 [INF] API GET /lib/bootstrap/dist/js/bootstrap.bundle.min.js -> 304 in 11ms
+2025-12-01 13:28:41.651 +05:30 [INF] API GET /lib/bootstrap/dist/css/bootstrap.min.css -> 200 in 22ms
+2025-12-01 13:28:41.652 +05:30 [INF] API GET /js/site.js -> 200 in 9ms
+2025-12-01 13:28:41.666 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/js/site.js?v=dLGP40S79Xnx6GqUthRF6NWvjvhQ1nOvdVSwaNcgG18 - 200 230 text/javascript 37.8126ms
+2025-12-01 13:28:41.656 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/lib/jquery/dist/jquery.min.js - 304 null text/javascript 32.8768ms
+2025-12-01 13:28:41.659 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/css/site.css - 200 1417 text/css 37.516ms
+2025-12-01 13:28:41.661 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/lib/bootstrap/dist/js/bootstrap.bundle.min.js - 304 null text/javascript 36.6986ms
+2025-12-01 13:28:41.664 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/lib/bootstrap/dist/css/bootstrap.min.css - 200 155764 text/css 44.727ms
+2025-12-01 13:28:41.654 +05:30 [INF] API GET /lib/jquery-validation/dist/jquery.validate.min.js -> 304 in 7ms
+2025-12-01 13:28:41.674 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js - null null
+2025-12-01 13:28:41.680 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/lib/jquery-validation/dist/jquery.validate.min.js - 304 null text/javascript 51.6417ms
+2025-12-01 13:28:41.682 +05:30 [INF] The file /lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js was not modified
+2025-12-01 13:28:41.685 +05:30 [INF] API GET /lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js -> 304 in 3ms
+2025-12-01 13:28:41.687 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js - 304 null text/javascript 13.0381ms
+2025-12-01 13:28:41.749 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/favicon.ico - null null
+2025-12-01 13:28:41.759 +05:30 [INF] Sending file. Request path: '/favicon.ico'. Physical path: 'D:\FORM_DHS\UI_DESIGN_HELLO_WORLD\temp\Naveen_Assignments\bp-calculator\wwwroot\favicon.ico'
+2025-12-01 13:28:41.761 +05:30 [INF] API GET /favicon.ico -> 200 in 9ms
+2025-12-01 13:28:41.763 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/favicon.ico - 499 32038 image/x-icon 13.5219ms
+2025-12-01 13:29:24.651 +05:30 [INF] Request starting HTTP/1.1 POST http://localhost:5000/ - application/x-www-form-urlencoded 263
+2025-12-01 13:29:24.654 +05:30 [INF] Executing endpoint '/Index'
+2025-12-01 13:29:24.655 +05:30 [INF] Route matched with {page = "/Index"}. Executing page /Index
+2025-12-01 13:29:24.670 +05:30 [INF] Executing handler method BPCalculator.Pages.BloodPressureModel.OnPost - ModelState is "Valid"
+2025-12-01 13:29:24.673 +05:30 [INF] Blood Pressure reading 125/89 categorized as PreHigh
+2025-12-01 13:29:24.674 +05:30 [INF] Executed handler method OnPost, returned result Microsoft.AspNetCore.Mvc.RazorPages.PageResult.
+2025-12-01 13:29:24.678 +05:30 [INF] Executed page /Index in 22.6967ms
+2025-12-01 13:29:24.680 +05:30 [INF] Executed endpoint '/Index'
+2025-12-01 13:29:24.681 +05:30 [INF] API POST / -> 200 in 27ms
+2025-12-01 13:29:24.683 +05:30 [INF] Request finished HTTP/1.1 POST http://localhost:5000/ - 200 null text/html; charset=utf-8 31.9116ms
+2025-12-01 13:29:24.981 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/favicon.ico - null null
+2025-12-01 13:29:24.984 +05:30 [INF] Sending file. Request path: '/favicon.ico'. Physical path: 'D:\FORM_DHS\UI_DESIGN_HELLO_WORLD\temp\Naveen_Assignments\bp-calculator\wwwroot\favicon.ico'
+2025-12-01 13:29:24.986 +05:30 [INF] API GET /favicon.ico -> 200 in 1ms
+2025-12-01 13:29:24.987 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/favicon.ico - 499 32038 image/x-icon 5.9204ms
+2025-12-01 13:30:18.244 +05:30 [INF] Request starting HTTP/1.1 POST http://localhost:5000/ - application/x-www-form-urlencoded 263
+2025-12-01 13:30:18.246 +05:30 [INF] Executing endpoint '/Index'
+2025-12-01 13:30:18.247 +05:30 [INF] Route matched with {page = "/Index"}. Executing page /Index
+2025-12-01 13:30:18.249 +05:30 [INF] Executing handler method BPCalculator.Pages.BloodPressureModel.OnPost - ModelState is "Valid"
+2025-12-01 13:30:18.250 +05:30 [INF] Blood Pressure reading 134/90 categorized as High
+2025-12-01 13:30:18.251 +05:30 [INF] Executed handler method OnPost, returned result Microsoft.AspNetCore.Mvc.RazorPages.PageResult.
+2025-12-01 13:30:18.253 +05:30 [INF] Executed page /Index in 5.5811ms
+2025-12-01 13:30:18.255 +05:30 [INF] Executed endpoint '/Index'
+2025-12-01 13:30:18.255 +05:30 [INF] API POST / -> 200 in 9ms
+2025-12-01 13:30:18.257 +05:30 [INF] Request finished HTTP/1.1 POST http://localhost:5000/ - 200 null text/html; charset=utf-8 13.1059ms
+2025-12-01 13:30:18.437 +05:30 [INF] Request starting HTTP/1.1 GET http://localhost:5000/favicon.ico - null null
+2025-12-01 13:30:18.439 +05:30 [INF] Sending file. Request path: '/favicon.ico'. Physical path: 'D:\FORM_DHS\UI_DESIGN_HELLO_WORLD\temp\Naveen_Assignments\bp-calculator\wwwroot\favicon.ico'
+2025-12-01 13:30:18.440 +05:30 [INF] API GET /favicon.ico -> 200 in 1ms
+2025-12-01 13:30:18.442 +05:30 [INF] Request finished HTTP/1.1 GET http://localhost:5000/favicon.ico - 499 32038 image/x-icon 4.8848ms
+2025-12-01 13:33:25.203 +05:30 [INF] Application is shutting down...
