@@ -67,6 +67,50 @@ namespace BPCalculator
 
 
 
+// BMI Calculator Feature
+public class BMI
+{
+    public const double WeightMin = 30;
+    public const double WeightMax = 300;
+    public const double HeightMin = 1.0;
+    public const double HeightMax = 2.5;
+
+    public double Weight { get; set; }  // kg
+    public double Height { get; set; }  // meters
+
+    public double BMIScore => Weight / (Height * Height);
+
+    public string Category
+    {
+        get
+        {
+            return BMIScore switch
+            {
+                < 18.5 => "Underweight",
+                >= 18.5 and < 25 => "Normal", 
+                >= 25 and < 30 => "Overweight",
+                _ => "Obese"
+            };
+        }
+    }
+
+    // Static method for testing (ADD THIS)
+    public static string CalculateCategory(double weight, double height)
+    {
+        var bmiScore = weight / (height * height);
+        
+        return bmiScore switch
+        {
+            < 18.5 => "Underweight",
+            >= 18.5 and < 25 => "Normal",
+            >= 25 and < 30 => "Overweight", 
+            _ => "Obese"
+        };
+    }
+}
+
+
+
 
 
 
