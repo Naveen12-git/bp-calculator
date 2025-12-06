@@ -77,8 +77,8 @@ jobs:
         with:
           args: >
             -Dsonar.organization=${{ secrets.SONAR_ORG }}
-            -Dsonar.projectKey=new-idea_bp-calculator
-            -Dsonar.projectName=BP-Calculator
+            -Dsonar.projectKey=Naveen12-git_bp-calculator
+            -Dsonar.projectName=Naveen12-git
             -Dsonar.sources=.
       - name: Security Check
         run: dotnet list package --vulnerable
