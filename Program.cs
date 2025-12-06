@@ -5,6 +5,8 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using BPCalculator;
 
+
+
 // Configure Serilog first
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -22,7 +24,7 @@ try
 
     var app = builder.Build();
 
-    // ✅ TELEMETRY MIDDLEWARE - Logs every request
+    //  TELEMETRY MIDDLEWARE - Logs every request
     app.Use(async (context, next) =>
     {
         var startTime = DateTime.UtcNow;
@@ -46,7 +48,7 @@ try
         app.UseHsts();
     }
 
-    // ✅ HEALTH ENDPOINT
+    //  HEALTH ENDPOINT
     app.MapGet("/health", () => 
     {
         Log.Information("Health check called - Status: Healthy");
@@ -60,7 +62,7 @@ try
         };
     });
 
-    // ✅ METRICS ENDPOINT
+    //  METRICS ENDPOINT
     app.MapGet("/metrics", () => 
     {
         Log.Information("Metrics checked - Memory: {MemoryMB}MB", 
@@ -74,7 +76,9 @@ try
         };
     });
 
-    // ✅ BP CALCULATOR API ENDPOINT
+   
+
+    //  BP CALCULATOR API ENDPOINT
     app.MapPost("/api/bp/calculate", (BPRequest request) =>
     {
         Log.Information("BP Calculation - Systolic: {Systolic}, Diastolic: {Diastolic}", 
@@ -117,7 +121,7 @@ try
         });
     });
 
-    // ✅ BMI CALCULATOR API ENDPOINT
+    //  BMI CALCULATOR API ENDPOINT
     app.MapPost("/api/bmi/calculate", (BMIRequest request) =>
     {
         Log.Information("BMI Calculation - Weight: {Weight}kg, Height: {Height}m", 
