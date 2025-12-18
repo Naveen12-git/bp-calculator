@@ -34,7 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docker-tag: ${{ steps.version.outputs.docker-tag }}
-      image-name: ${{ steps.build-image.outputs.image-name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,6 +49,7 @@ jobs:
           SHORT_SHA=${GITHUB_SHA::8}
           TAG="build-$(date +%Y%m%d)-${SHORT_SHA}"
           echo "docker-tag=$TAG" >> $GITHUB_OUTPUT
+          echo "TAG=$TAG" >> $GITHUB_ENV
           echo "Using tag: $TAG"
 
       - name: Restore dependencies
@@ -69,9 +69,8 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build and push Docker image
-        id: build-image
         run: |
-          TAG="${{ steps.version.outputs.docker-tag }}"
+          TAG="${{ env.TAG }}"
           FULL_IMAGE_NAME="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:$TAG"
           
           echo "Building image: $FULL_IMAGE_NAME"
@@ -81,12 +80,12 @@ jobs:
           docker push $FULL_IMAGE_NAME
           
           # Also tag as latest
-          docker tag $FULL_IMAGE_NAME ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:latest
-          docker push ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:latest
+          LATEST_IMAGE="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:latest"
+          docker tag $FULL_IMAGE_NAME $LATEST_IMAGE
+          docker push $LATEST_IMAGE
           
-          # Output the full image name for other jobs
-          echo "image-name=$FULL_IMAGE_NAME" >> $GITHUB_OUTPUT
           echo "Image successfully pushed: $FULL_IMAGE_NAME"
+          echo "Latest tag also updated: $LATEST_IMAGE"
 
   # =====================
   # PERFORMANCE & SECURITY TESTING
@@ -107,16 +106,20 @@ jobs:
 
       - name: Pull and run test container
         run: |
-          IMAGE_NAME="${{ needs.continuous-integration.outputs.image-name }}"
-          echo "Pulling image: $IMAGE_NAME"
+          # Get the tag from the previous job
+          TAG="${{ needs.continuous-integration.outputs.docker-tag }}"
+          FULL_IMAGE_NAME="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:$TAG"
           
-          if [ -z "$IMAGE_NAME" ]; then
-            echo "ERROR: IMAGE_NAME is empty!"
+          echo "Pulling image: $FULL_IMAGE_NAME"
+          echo "Tag from CI job: $TAG"
+          
+          if [ -z "$TAG" ]; then
+            echo "ERROR: TAG is empty! Check continuous-integration job output."
             exit 1
           fi
           
-          docker pull $IMAGE_NAME
-          docker run -d --name bp-test -p 8080:8080 $IMAGE_NAME
+          docker pull $FULL_IMAGE_NAME
+          docker run -d --name bp-test -p 8080:8080 $FULL_IMAGE_NAME
           
           echo "Waiting for application to be healthy..."
           for i in {1..12}; do
@@ -184,13 +187,15 @@ jobs:
 
       - name: Deploy to QA Container App
         run: |
-          IMAGE_NAME="${{ needs.continuous-integration.outputs.image-name }}"
-          echo "Deploying image: $IMAGE_NAME to QA"
+          TAG="${{ needs.continuous-integration.outputs.docker-tag }}"
+          FULL_IMAGE_NAME="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:$TAG"
+          
+          echo "Deploying image: $FULL_IMAGE_NAME to QA"
           
           az containerapp create \
             --name "${{ env.CONTAINER_APP_NAME }}-qa" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "$IMAGE_NAME" \
+            --image "$FULL_IMAGE_NAME" \
             --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}-qa" \
             --target-port 8080 \
             --ingress external \
@@ -255,13 +260,15 @@ jobs:
 
       - name: Deploy to inactive environment
         run: |
-          IMAGE_NAME="${{ needs.continuous-integration.outputs.image-name }}"
-          echo "Deploying image: $IMAGE_NAME to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
+          TAG="${{ needs.continuous-integration.outputs.docker-tag }}"
+          FULL_IMAGE_NAME="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:$TAG"
+          
+          echo "Deploying image: $FULL_IMAGE_NAME to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
           
           az containerapp create \
             --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "$IMAGE_NAME" \
+            --image "$FULL_IMAGE_NAME" \
             --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}-prod" \
             --target-port 8080 \
             --ingress external \
@@ -296,7 +303,7 @@ jobs:
                 -H "Content-Type: application/json" \
                 -d '{"Systolic": 120, "Diastolic": 80}'
               
-              curl -X POST "https://$NEW_FQDN/api/bmi/calculate" \
+              curl -X POST "https://$NEW_FDOOR_NAME/api/bmi/calculate" \
                 -H "Content-Type: application/json" \
                 -d '{"Weight": 70, "Height": 1.75}'
               
@@ -338,10 +345,13 @@ jobs:
         run: |
           # Optionally, update the old environment with the new image for next deployment
           echo "Updating old environment (${{ steps.detect-env.outputs.CURRENT_ENV }}) for next deployment..."
+          TAG="${{ needs.continuous-integration.outputs.docker-tag }}"
+          FULL_IMAGE_NAME="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:$TAG"
+          
           az containerapp update \
             --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.CURRENT_ENV }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "${{ needs.continuous-integration.outputs.image-name }}" \
+            --image "$FULL_IMAGE_NAME" \
             --cpu 1.0 \
             --memory 2.0Gi \
             --min-replicas 1 \
