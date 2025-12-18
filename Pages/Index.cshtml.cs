@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
-using BPCalculator; // Add this
+using BPCalculator;
 
 namespace BPCalculator.Pages
 {
@@ -21,30 +21,55 @@ namespace BPCalculator.Pages
 
         public void OnGet()
         {
+            // Initialize with default values
             BP = new BloodPressure() { Systolic = 100, Diastolic = 60 };
+            Category = null;
+            
+            // Check for result from redirect
+            if (TempData["CategoryResult"] is string category)
+            {
+                Category = category;
+                TempData.Keep("CategoryResult"); // Keep for next request
+            }
+            
+            // Check for error from redirect
+            if (TempData["ErrorMessage"] is string error)
+            {
+                ModelState.AddModelError("", error);
+                TempData.Keep("ErrorMessage");
+            }
         }
 
         public IActionResult OnPost()
         {
-            // Validate systolic always > diastolic
-            if (!(BP.Systolic > BP.Diastolic))
+            // Check validation FIRST to prevent auto-400
+            if (!ModelState.IsValid)
             {
-                ModelState.AddModelError("", "Systolic must be greater than Diastolic");
-                return Page();
+                // Redirect to fresh page on validation error
+                return RedirectToPage();
             }
 
-            // Compute category - Now using the enum-based property
-            Category = BP.Category.ToString();
+            // Your custom validation
+            if (!(BP.Systolic > BP.Diastolic))
+            {
+                TempData["ErrorMessage"] = "Systolic must be greater than Diastolic";
+                return RedirectToPage();
+            }
 
-            // Telemetry logging
+            // Compute category
+            Category = BP.Category.ToString();
+            
+            // Store result to show after redirect
+            TempData["CategoryResult"] = Category;
+
+            // Logging
             _logger.LogInformation(
                 "Blood Pressure reading {Systolic}/{Diastolic} categorized as {Category}",
                 BP.Systolic, BP.Diastolic, Category
             );
 
-            return Page();
+            // Always redirect after POST
+            return RedirectToPage();
         }
     }
-
-    // REMOVE the duplicate BloodPressure class from here
 }
