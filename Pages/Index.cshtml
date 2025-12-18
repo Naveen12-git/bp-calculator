@@ -10,10 +10,10 @@
 <div class="row">
     <div class="col-md-4">
         <form method="post" id="form1">
-            <!-- ⬇️ ADD THIS LINE (CRITICAL FIX) -->
             @Html.AntiForgeryToken()
             
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <!-- 🔧 FIX: Show ALL validation errors -->
+            <div asp-validation-summary="All" class="text-danger"></div>
 
             <div class="form-group">
                 <label asp-for="BP.Systolic" class="control-label"></label>
@@ -31,7 +31,7 @@
                 <input type="submit" value="Submit" class="btn btn-primary" />
             </div>
 
-            @* Show Category After POST *@
+            <!-- Show Category After POST (from TempData) -->
             @if (Model.Category != null)
             {
                 <div class="alert alert-info mt-3">
