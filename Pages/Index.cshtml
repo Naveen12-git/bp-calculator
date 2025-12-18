@@ -35,7 +35,7 @@
             @if (Model.Category != null)
             {
                 <div class="alert alert-info mt-3">
-                    <strong>Category:</strong> @Model.Category
+                    <strong>Result:</strong> @Model.Category
                 </div>
             }
         </form>
@@ -43,5 +43,6 @@
 </div>
 
 @section Scripts {
+    <!-- Keep only validation scripts -->
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }

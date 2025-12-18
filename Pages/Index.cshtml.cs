@@ -36,7 +36,7 @@ namespace BPCalculator.Pages
             // Compute category - Now using the enum-based property
             Category = BP.Category.ToString();
 
-            // Telemetry logging
+            // Logging
             _logger.LogInformation(
                 "Blood Pressure reading {Systolic}/{Diastolic} categorized as {Category}",
                 BP.Systolic, BP.Diastolic, Category
