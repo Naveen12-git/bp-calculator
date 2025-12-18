@@ -1,4 +1,4 @@
-name: CD Pipeline - Azure Blue-Green Deployment
+name: CD Pipeline - Azure Deployment
 
 on:
   push:
@@ -19,11 +19,7 @@ env:
   AZURE_LOCATION: 'eastus'
   CONTAINER_APP_ENVIRONMENT: 'bp-calculator-env-qa'
   CONTAINER_APP_NAME: 'bp-calculator-app'
-  FRONT_DOOR_NAME: 'bp-calculator-fd'
   ACR_NAME: 'bpcalculatoracr'
-  # ADD THESE NEW ENV VARIABLES FOR FRONT DOOR
-  FRONT_DOOR_ENDPOINT: 'bp-endpoint'  # Replace with your actual endpoint name
-  FRONT_DOOR_ROUTE: 'bp-route'        # Replace with your actual route name
 
 permissions:
   id-token: write
@@ -298,9 +294,9 @@ jobs:
           echo "QA verification completed in ${elapsed} seconds"
 
   # =====================
-  # PRODUCTION BLUE-GREEN DEPLOYMENT
+  # PRODUCTION DEPLOYMENT (Simple - No Front Door)
   # =====================
-  deploy-production-blue-green:
+  deploy-production:
     runs-on: ubuntu-latest
     needs: [continuous-integration, deploy-qa]
     environment: production
@@ -310,64 +306,25 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Install Front Door CLI Extension
-        run: |
-          echo "Installing Azure Front Door CLI extension..."
-          az extension add --name front-door --only-show-errors
-          echo "✅ Front Door extension installed"
-
-      - name: Determine active environment
-        id: detect-env
-        run: |
-          # Check which origin group is currently active in Front Door Standard/Premium
-          CURRENT_POOL=$(az afd route show \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --profile-name "${{ env.FRONT_DOOR_NAME }}" \
-            --endpoint-name "${{ env.FRONT_DOOR_ENDPOINT }}" \
-            --route-name "${{ env.FRONT_DOOR_ROUTE }}" \
-            --query "originGroup.id" \
-            --output tsv 2>/dev/null || echo "")
-          
-          # Extract the pool name from the full resource ID
-          if [[ -n "$CURRENT_POOL" ]]; then
-            CURRENT_POOL_NAME=$(echo "$CURRENT_POOL" | sed 's|.*/originGroups/||')
-          else
-            CURRENT_POOL_NAME="blue-pool"
-          fi
-          
-          if [[ "$CURRENT_POOL_NAME" == "blue-pool" ]]; then
-            echo "CURRENT_ENV=blue" >> $GITHUB_OUTPUT
-            echo "NEW_ENV=green" >> $GITHUB_OUTPUT
-            echo "CURRENT_POOL=blue-pool" >> $GITHUB_OUTPUT
-            echo "NEW_POOL=green-pool" >> $GITHUB_OUTPUT
-            echo "Currently active: BLUE, will deploy to GREEN"
-          else
-            echo "CURRENT_ENV=green" >> $GITHUB_OUTPUT
-            echo "NEW_ENV=blue" >> $GITHUB_OUTPUT
-            echo "CURRENT_POOL=green-pool" >> $GITHUB_OUTPUT
-            echo "NEW_POOL=blue-pool" >> $GITHUB_OUTPUT
-            echo "Currently active: GREEN, will deploy to BLUE"
-          fi
-
-      - name: Deploy to inactive environment
+      - name: Deploy to Production Container App
         run: |
           TAG="${{ needs.continuous-integration.outputs.docker-tag }}"
           FULL_IMAGE_NAME="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:$TAG"
           
-          echo "Deploying image: $FULL_IMAGE_NAME to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
+          echo " Deploying to Production..."
           
           # Check if Container App already exists
-          if az containerapp show --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" --query "name" -o tsv 2>/dev/null; then
-            echo "Updating existing ${{ steps.detect-env.outputs.NEW_ENV }} Container App..."
+          if az containerapp show --name "${{ env.CONTAINER_APP_NAME }}-prod" --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" --query "name" -o tsv 2>/dev/null; then
+            echo " Updating Production Container App..."
             az containerapp update \
-              --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
+              --name "${{ env.CONTAINER_APP_NAME }}-prod" \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --image "$FULL_IMAGE_NAME" \
               --set-env-vars ASPNETCORE_ENVIRONMENT=Production
           else
-            echo "Creating new ${{ steps.detect-env.outputs.NEW_ENV }} Container App..."
+            echo " Creating new Production Container App..."
             az containerapp create \
-              --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
+              --name "${{ env.CONTAINER_APP_NAME }}-prod" \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --image "$FULL_IMAGE_NAME" \
               --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
@@ -379,83 +336,110 @@ jobs:
               --max-replicas 5 \
               --env-vars ASPNETCORE_ENVIRONMENT=Production
           fi
+          
+          echo " Deployment command completed!"
 
-      - name: Quick deployment verification
+      - name: Get Production URL
+        id: get-url
         run: |
-          # Get the FQDN of the new deployment
-          NEW_FQDN=$(az containerapp show \
-            --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
+          # Wait a moment for the app to start provisioning
+          sleep 10
+          
+          # Get the FQDN
+          FQDN=$(az containerapp show \
+            --name "${{ env.CONTAINER_APP_NAME }}-prod" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --query "properties.configuration.ingress.fqdn" \
-            --output tsv)
+            --output tsv 2>/dev/null || echo "")
           
-          echo " New deployment created: ${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}"
-          echo " Public URL: https://$NEW_FQDN"
-          
-          # Quick check - wait 5 seconds then do ONE health check
-          sleep 5
-          
-          # Single health check attempt with 10-second timeout
-          echo "🔍 Performing quick health check..."
-          if timeout 10 curl -s -f "https://$NEW_FQDN/health" > /dev/null; then
-            echo " Health check passed!"
+          if [[ -n "$FQDN" && "$FQDN" != "null" ]]; then
+            echo " Production URL: https://$FQDN"
+            echo "FQDN=$FQDN" >> $GITHUB_OUTPUT
           else
-            echo " Quick health check failed or timed out"
-            echo "Continuing anyway - Azure Container Apps will handle health probing"
+            echo " URL not available yet - checking provisioning status..."
+            STATUS=$(az containerapp show \
+              --name "${{ env.CONTAINER_APP_NAME }}-prod" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --query "properties.provisioningState" \
+              --output tsv 2>/dev/null || echo "Unknown")
+            echo "Current status: $STATUS"
           fi
 
-      - name: Switch traffic in Azure Front Door
+      - name: Verify Production Deployment
         run: |
-          # Update Front Door Standard/Premium to route 100% traffic to the new environment
-          echo " Switching traffic to ${{ steps.detect-env.outputs.NEW_POOL }}..."
+          echo "🔍 Verifying production deployment..."
           
-          az afd route update \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --profile-name "${{ env.FRONT_DOOR_NAME }}" \
-            --endpoint-name "${{ env.FRONT_DOOR_ENDPOINT }}" \
-            --route-name "${{ env.FRONT_DOOR_ROUTE }}" \
-            --origin-group "${{ steps.detect-env.outputs.NEW_POOL }}"
-          
-          echo " Traffic switched to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
-
-      - name: Verify traffic switch
-        run: |
-          # Get Front Door endpoint hostname
-          FD_ENDPOINT=$(az afd endpoint show \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --profile-name "${{ env.FRONT_DOOR_NAME }}" \
-            --endpoint-name "${{ env.FRONT_DOOR_ENDPOINT }}" \
-            --query "hostName" \
-            --output tsv)
-          
-          echo " Front Door URL: https://$FD_ENDPOINT"
-          
-          # Quick verification that Front Door is responding
-          sleep 10  # Give Front Door time to propagate changes
-          
-          echo " Verifying Front Door is responding..."
-          if timeout 15 curl -s -f "https://$FD_ENDPOINT/health" > /dev/null; then
-            echo " Front Door is responding correctly!"
+          # Check if we got the URL
+          if [[ -n "${{ steps.get-url.outputs.FQDN }}" ]]; then
+            FQDN="${{ steps.get-url.outputs.FQDN }}"
+            echo "Testing health endpoint: https://$FQDN/health"
+            
+            # Try health check for up to 2 minutes
+            HEALTHY=false
+            for i in {1..12}; do
+              echo "Attempt $i/12..."
+              if timeout 10 curl -s -f "https://$FQDN/health" > /dev/null; then
+                echo " Production app is healthy!"
+                HEALTHY=true
+                
+                # Quick smoke test
+                echo "Running smoke tests..."
+                if timeout 5 curl -X POST "https://$FQDN/api/bp/calculate" \
+                  -H "Content-Type: application/json" \
+                  -d '{"Systolic": 120, "Diastolic": 80}' 2>/dev/null | grep -q "Normal"; then
+                  echo " BP API is working"
+                fi
+                
+                if timeout 5 curl -X POST "https://$FQDN/api/bmi/calculate" \
+                  -H "Content-Type: application/json" \
+                  -d '{"Weight": 70, "Height": 1.75}' 2>/dev/null | grep -q "Normal"; then
+                  echo " BMI API is working"
+                fi
+                
+                break
+              fi
+              echo "Waiting for app to start... ($i/12)"
+              sleep 10
+            done
+            
+            if [[ "$HEALTHY" == false ]]; then
+              echo " Health check failed after 2 minutes"
+              echo "The app might still be starting. Check the Azure portal for details."
+            fi
           else
-            echo " Front Door health check failed or timed out"
-            echo "Note: This might be normal - routing changes can take a few minutes to propagate globally"
+            echo " No URL available yet. The app is being provisioned."
+            echo "Check Azure Container Apps in the portal for progress."
           fi
 
-      - name: Clean up old environment
+      - name: Deployment Summary
         run: |
-          # Optionally, update the old environment with the new image for next deployment
-          echo " Updating old environment (${{ steps.detect-env.outputs.CURRENT_ENV }}) for next deployment..."
-          TAG="${{ needs.continuous-integration.outputs.docker-tag }}"
-          FULL_IMAGE_NAME="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:$TAG"
-          
-          az containerapp update \
-            --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.CURRENT_ENV }}" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "$FULL_IMAGE_NAME" \
-            --set-env-vars ASPNETCORE_ENVIRONMENT=Production \
-            --cpu 1.0 \
-            --memory 2.0Gi \
-            --min-replicas 1 \
-            --max-replicas 2
-          
-          echo " Old environment updated and ready for next deployment cycle"
+          echo "=========================================="
+          echo " DEPLOYMENT SUMMARY"
+          echo "=========================================="
+          if [[ -n "${{ steps.get-url.outputs.FQDN }}" ]]; then
+            echo " Production App Deployed Successfully!"
+            echo ""
+            echo " Application Details:"
+            echo "   Name: ${{ env.CONTAINER_APP_NAME }}-prod"
+            echo "   Resource Group: ${{ env.AZURE_RESOURCE_GROUP }}"
+            echo "   Environment: ${{ env.CONTAINER_APP_ENVIRONMENT }}"
+            echo ""
+            echo " Access Your App:"
+            echo "   URL: https://${{ steps.get-url.outputs.FQDN }}"
+            echo ""
+            echo " Quick Links:"
+            echo "   • Health Check: https://${{ steps.get-url.outputs.FQDN }}/health"
+            echo "   • BP Calculator API: https://${{ steps.get-url.outputs.FQDN }}/api/bp/calculate"
+            echo "   • BMI Calculator API: https://${{ steps.get-url.outputs.FQDN }}/api/bmi/calculate"
+            echo ""
+            echo " Configuration:"
+            echo "   • CPU: 1.0 core"
+            echo "   • Memory: 2.0 Gi"
+            echo "   • Min Replicas: 2"
+            echo "   • Max Replicas: 5"
+          else
+            echo " Deployment in Progress"
+            echo "The app is being provisioned. It may take a few minutes to be fully available."
+            echo "Check Azure Container Apps in the portal for real-time status."
+          fi
+          echo "=========================================="
