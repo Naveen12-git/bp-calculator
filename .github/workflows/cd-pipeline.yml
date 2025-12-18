@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docker-tag: ${{ steps.version.outputs.docker-tag }}
-      image-name: ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:${{ steps.version.outputs.docker-tag }}
+      image-name: ${{ steps.build-image.outputs.image-name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,11 +69,24 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build and push Docker image
+        id: build-image
         run: |
-          docker build -t ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:${{ steps.version.outputs.docker-tag }} .
-          docker push ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:${{ steps.version.outputs.docker-tag }}
-          docker tag ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:${{ steps.version.outputs.docker-tag }} ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:latest
+          TAG="${{ steps.version.outputs.docker-tag }}"
+          FULL_IMAGE_NAME="${{ env.ACR_NAME }}.azurecr.io/bp-calculator:$TAG"
+          
+          echo "Building image: $FULL_IMAGE_NAME"
+          docker build -t $FULL_IMAGE_NAME .
+          
+          echo "Pushing image to ACR..."
+          docker push $FULL_IMAGE_NAME
+          
+          # Also tag as latest
+          docker tag $FULL_IMAGE_NAME ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:latest
           docker push ${{ env.ACR_NAME }}.azurecr.io/bp-calculator:latest
+          
+          # Output the full image name for other jobs
+          echo "image-name=$FULL_IMAGE_NAME" >> $GITHUB_OUTPUT
+          echo "Image successfully pushed: $FULL_IMAGE_NAME"
 
   # =====================
   # PERFORMANCE & SECURITY TESTING
@@ -94,8 +107,16 @@ jobs:
 
       - name: Pull and run test container
         run: |
-          docker pull ${{ needs.continuous-integration.outputs.image-name }}
-          docker run -d --name bp-test -p 8080:8080 ${{ needs.continuous-integration.outputs.image-name }}
+          IMAGE_NAME="${{ needs.continuous-integration.outputs.image-name }}"
+          echo "Pulling image: $IMAGE_NAME"
+          
+          if [ -z "$IMAGE_NAME" ]; then
+            echo "ERROR: IMAGE_NAME is empty!"
+            exit 1
+          fi
+          
+          docker pull $IMAGE_NAME
+          docker run -d --name bp-test -p 8080:8080 $IMAGE_NAME
           
           echo "Waiting for application to be healthy..."
           for i in {1..12}; do
@@ -163,11 +184,13 @@ jobs:
 
       - name: Deploy to QA Container App
         run: |
-          # Create or update QA Container App
+          IMAGE_NAME="${{ needs.continuous-integration.outputs.image-name }}"
+          echo "Deploying image: $IMAGE_NAME to QA"
+          
           az containerapp create \
             --name "${{ env.CONTAINER_APP_NAME }}-qa" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "${{ needs.continuous-integration.outputs.image-name }}" \
+            --image "$IMAGE_NAME" \
             --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}-qa" \
             --target-port 8080 \
             --ingress external \
@@ -232,11 +255,13 @@ jobs:
 
       - name: Deploy to inactive environment
         run: |
-          # Deploy new version to the inactive environment
+          IMAGE_NAME="${{ needs.continuous-integration.outputs.image-name }}"
+          echo "Deploying image: $IMAGE_NAME to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
+          
           az containerapp create \
             --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "${{ needs.continuous-integration.outputs.image-name }}" \
+            --image "$IMAGE_NAME" \
             --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}-prod" \
             --target-port 8080 \
             --ingress external \
