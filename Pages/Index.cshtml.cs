@@ -21,29 +21,51 @@ namespace BPCalculator.Pages
 
         public void OnGet()
         {
-            // Initialize with default values for the form
+            // Initialize with default values
             BP = new BloodPressure() { Systolic = 100, Diastolic = 60 };
-            Category = null; // Clear any previous result
+            Category = null;
+            
+            // 🔧 FIX: Retrieve TempData values after redirect
+            if (TempData["CategoryResult"] is string category)
+            {
+                Category = category;
+                TempData.Keep("CategoryResult"); // Keep for display
+            }
+            
+            if (TempData["ErrorMessage"] is string error)
+            {
+                ModelState.AddModelError("", error);
+                TempData.Keep("ErrorMessage");
+            }
+            
+            if (TempData["ValidationError"] is string validationError)
+            {
+                ModelState.AddModelError("", validationError);
+                TempData.Keep("ValidationError");
+            }
         }
 
         public IActionResult OnPost()
         {
-            // 🔧 CRITICAL FIX: Check model validation FIRST
+            // 🔧 FIX: Check validation FIRST
             if (!ModelState.IsValid)
             {
-                // Return the page to show validation errors (like "Required field")
-                return Page();
+                TempData["ValidationError"] = "Please check your input values";
+                return RedirectToPage(); // Redirect instead of Page()
             }
 
-            // Your custom validation: systolic must be > diastolic
+            // Your custom validation
             if (!(BP.Systolic > BP.Diastolic))
             {
-                ModelState.AddModelError("", "Systolic must be greater than Diastolic");
-                return Page();
+                TempData["ErrorMessage"] = "Systolic must be greater than Diastolic";
+                return RedirectToPage(); // Redirect instead of Page()
             }
 
-            // Compute category using the enum-based property
+            // Compute category
             Category = BP.Category.ToString();
+            
+            // 🔧 FIX: Store result for redirect
+            TempData["CategoryResult"] = Category;
 
             // Telemetry logging
             _logger.LogInformation(
@@ -51,7 +73,8 @@ namespace BPCalculator.Pages
                 BP.Systolic, BP.Diastolic, Category
             );
 
-            return Page();
+            // 🔧 FIX: ALWAYS redirect after POST
+            return RedirectToPage();
         }
     }
 }
