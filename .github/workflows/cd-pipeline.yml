@@ -17,7 +17,7 @@ on:
 env:
   AZURE_RESOURCE_GROUP: 'bp-calculator-rg'
   AZURE_LOCATION: 'eastus'
-  CONTAINER_APP_ENVIRONMENT: 'bp-calculator-env'
+  CONTAINER_APP_ENVIRONMENT: 'bp-calculator-env-qa'  # CHANGED: Use the actual environment name
   CONTAINER_APP_NAME: 'bp-calculator-app'
   FRONT_DOOR_NAME: 'bp-calculator-fd'
   ACR_NAME: 'bpcalculatoracr'
@@ -155,7 +155,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"Systolic": "120 OR 1=1", "Diastolic": 80}' || echo "SQL injection test passed"
           
-          curl -X POST http://localhost:8080/api/bmi/calculate \
+          curl -X POST http/localhost:8080/api/bmi/calculate \
             -H "Content-Type: application/json" \
             -d '{"Weight": "70 UNION SELECT", "Height": 1.75}' || echo "SQL injection test passed"
       - name: Cleanup test container
@@ -182,12 +182,12 @@ jobs:
           
           echo "Deploying image: $FULL_IMAGE_NAME to QA"
           
-          # Create or update QA Container App (environment should already exist)
+          # Use the SAME environment for QA (bp-calculator-env-qa)
           az containerapp create \
             --name "${{ env.CONTAINER_APP_NAME }}-qa" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --image "$FULL_IMAGE_NAME" \
-            --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}-qa" \
+            --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
             --target-port 8080 \
             --ingress external \
             --cpu 0.5 \
@@ -251,12 +251,12 @@ jobs:
           
           echo "Deploying image: $FULL_IMAGE_NAME to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
           
-          # Create or update the inactive environment (production environment should already exist)
+          # Use the SAME environment for production (bp-calculator-env-qa)
           az containerapp create \
             --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --image "$FULL_IMAGE_NAME" \
-            --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}-prod" \
+            --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
             --target-port 8080 \
             --ingress external \
             --cpu 1.0 \
@@ -335,6 +335,7 @@ jobs:
             --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.CURRENT_ENV }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --image "$FULL_IMAGE_NAME" \
+            --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
             --cpu 1.0 \
             --memory 2.0Gi \
             --min-replicas 1 \
