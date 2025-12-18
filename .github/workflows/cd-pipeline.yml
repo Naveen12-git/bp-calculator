@@ -182,13 +182,7 @@ jobs:
           
           echo "Deploying image: $FULL_IMAGE_NAME to QA"
           
-          # Create QA environment if it doesn't exist
-          az containerapp env create \
-            --name "${{ env.CONTAINER_APP_ENVIRONMENT }}-qa" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --location "${{ env.AZURE_LOCATION }}" || echo "Environment may already exist"
-          
-          # Create or update QA Container App
+          # Create or update QA Container App (environment should already exist)
           az containerapp create \
             --name "${{ env.CONTAINER_APP_NAME }}-qa" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
@@ -257,13 +251,7 @@ jobs:
           
           echo "Deploying image: $FULL_IMAGE_NAME to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
           
-          # Create production environment if it doesn't exist
-          az containerapp env create \
-            --name "${{ env.CONTAINER_APP_ENVIRONMENT }}-prod" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --location "${{ env.AZURE_LOCATION }}" || echo "Environment may already exist"
-          
-          # Create or update the inactive environment
+          # Create or update the inactive environment (production environment should already exist)
           az containerapp create \
             --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
