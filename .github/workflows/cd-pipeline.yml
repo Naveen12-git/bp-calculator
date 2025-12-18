@@ -162,7 +162,7 @@ jobs:
         run: |
           docker stop bp-test || true
           docker rm bp-test || true
-  # =====================
+    # =====================
   # QA DEPLOYMENT (Single Environment)
   # =====================
   deploy-qa:
@@ -182,31 +182,92 @@ jobs:
           
           echo "Deploying image: $FULL_IMAGE_NAME to QA"
           
-          # Use the SAME environment for QA (bp-calculator-env-qa)
-          az containerapp create \
-            --name "${{ env.CONTAINER_APP_NAME }}-qa" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "$FULL_IMAGE_NAME" \
-            --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
-            --target-port 8080 \
-            --ingress external \
-            --cpu 0.5 \
-            --memory 1.0Gi \
-            --min-replicas 1 \
-            --max-replicas 3 \
-            --env-vars ASPNETCORE_ENVIRONMENT=QA
+          # Check if Container App already exists
+          if az containerapp show --name "${{ env.CONTAINER_APP_NAME }}-qa" --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" --query "name" -o tsv 2>/dev/null; then
+            echo "Updating existing QA Container App..."
+            az containerapp update \
+              --name "${{ env.CONTAINER_APP_NAME }}-qa" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --image "$FULL_IMAGE_NAME" \
+              --env-vars ASPNETCORE_ENVIRONMENT=QA
+          else
+            echo "Creating new QA Container App..."
+            az containerapp create \
+              --name "${{ env.CONTAINER_APP_NAME }}-qa" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --image "$FULL_IMAGE_NAME" \
+              --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
+              --target-port 8080 \
+              --ingress external \
+              --cpu 0.5 \
+              --memory 1.0Gi \
+              --min-replicas 1 \
+              --max-replicas 3 \
+              --env-vars ASPNETCORE_ENVIRONMENT=QA
+          fi
+
       - name: Verify QA deployment
         run: |
-          FQDN=$(az containerapp show \
-            --name "${{ env.CONTAINER_APP_NAME }}-qa" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --query "configuration.ingress.fqdn" \
-            --output tsv)
+          echo "Checking Container App status..."
+          
+          # Wait for Container App to be ready
+          for i in {1..30}; do
+            PROVISIONING_STATE=$(az containerapp show \
+              --name "${{ env.CONTAINER_APP_NAME }}-qa" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --query "properties.provisioningState" \
+              --output tsv 2>/dev/null || echo "Unknown")
+            
+            if [[ "$PROVISIONING_STATE" == "Succeeded" ]]; then
+              echo "Container App provisioning succeeded!"
+              break
+            fi
+            echo "Waiting for Container App to provision... State: $PROVISIONING_STATE (Attempt $i/30)"
+            sleep 10
+          done
+          
+          # Get FQDN - wait longer if needed
+          for i in {1..10}; do
+            FQDN=$(az containerapp show \
+              --name "${{ env.CONTAINER_APP_NAME }}-qa" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --query "properties.configuration.ingress.fqdn" \
+              --output tsv 2>/dev/null)
+            
+            if [[ -n "$FQDN" && "$FQDN" != "null" ]]; then
+              echo "QA Application URL: https://$FQDN"
+              break
+            fi
+            echo "Waiting for FQDN... (Attempt $i/10)"
+            sleep 10
+          done
+          
+          if [[ -z "$FQDN" || "$FQDN" == "null" ]]; then
+            echo "ERROR: Could not get FQDN for QA Container App"
+            echo "Container App details:"
+            az containerapp show --name "${{ env.CONTAINER_APP_NAME }}-qa" --resource-group "${{ env.AZURE_RESOURCE_GROUP }}"
+            exit 1
+          fi
           
           echo "QA Application URL: https://$FQDN"
           
-          sleep 30
-          curl -f "https://$FQDN/health" || (echo "QA deployment health check failed" && exit 1)
+          # Health check with retries
+          echo "Starting health checks..."
+          for i in {1..15}; do
+            echo "Health check attempt $i/15..."
+            if curl -s -f "https://$FQDN/health" > /dev/null; then
+              echo " QA deployment is healthy!"
+              exit 0
+            fi
+            echo "Health check failed, retrying in 10 seconds..."
+            sleep 10
+          done
+          
+          echo " QA deployment health check failed after 150 seconds"
+          echo "Container App logs:"
+          az containerapp logs show --name "${{ env.CONTAINER_APP_NAME }}-qa" --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" --tail 50
+          exit 1
+          
   # =====================
   # PRODUCTION BLUE-GREEN DEPLOYMENT
   # =====================
