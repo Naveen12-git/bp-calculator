@@ -21,6 +21,9 @@ env:
   CONTAINER_APP_NAME: 'bp-calculator-app'
   FRONT_DOOR_NAME: 'bp-calculator-fd'
   ACR_NAME: 'bpcalculatoracr'
+  # ADD THESE NEW ENV VARIABLES FOR FRONT DOOR
+  FRONT_DOOR_ENDPOINT: 'bp-endpoint'  # Replace with your actual endpoint name
+  FRONT_DOOR_ROUTE: 'bp-route'        # Replace with your actual route name
 
 permissions:
   id-token: write
@@ -307,28 +310,42 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Install Front Door CLI Extension
+        run: |
+          echo "Installing Azure Front Door CLI extension..."
+          az extension add --name front-door --only-show-errors
+          echo "✅ Front Door extension installed"
+
       - name: Determine active environment
         id: detect-env
         run: |
-          # Check which backend pool is currently active in Front Door
-          CURRENT_BACKEND=$(az network front-door routing-rule show \
+          # Check which origin group is currently active in Front Door Standard/Premium
+          CURRENT_POOL=$(az afd route show \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --front-door-name "${{ env.FRONT_DOOR_NAME }}" \
-            --name "bp-routing-rule" \
-            --query "backendPools[0].name" \
-            --output tsv 2>/dev/null || echo "blue-pool")
+            --profile-name "${{ env.FRONT_DOOR_NAME }}" \
+            --endpoint-name "${{ env.FRONT_DOOR_ENDPOINT }}" \
+            --route-name "${{ env.FRONT_DOOR_ROUTE }}" \
+            --query "originGroup.id" \
+            --output tsv 2>/dev/null || echo "")
           
-          if [[ "$CURRENT_BACKEND" == "blue-pool" ]]; then
+          # Extract the pool name from the full resource ID
+          if [[ -n "$CURRENT_POOL" ]]; then
+            CURRENT_POOL_NAME=$(echo "$CURRENT_POOL" | sed 's|.*/originGroups/||')
+          else
+            CURRENT_POOL_NAME="blue-pool"
+          fi
+          
+          if [[ "$CURRENT_POOL_NAME" == "blue-pool" ]]; then
             echo "CURRENT_ENV=blue" >> $GITHUB_OUTPUT
             echo "NEW_ENV=green" >> $GITHUB_OUTPUT
-            echo "CURRENT_BACKEND=blue-pool" >> $GITHUB_OUTPUT
-            echo "NEW_BACKEND=green-pool" >> $GITHUB_OUTPUT
+            echo "CURRENT_POOL=blue-pool" >> $GITHUB_OUTPUT
+            echo "NEW_POOL=green-pool" >> $GITHUB_OUTPUT
             echo "Currently active: BLUE, will deploy to GREEN"
           else
             echo "CURRENT_ENV=green" >> $GITHUB_OUTPUT
             echo "NEW_ENV=blue" >> $GITHUB_OUTPUT
-            echo "CURRENT_BACKEND=green-pool" >> $GITHUB_OUTPUT
-            echo "NEW_BACKEND=blue-pool" >> $GITHUB_OUTPUT
+            echo "CURRENT_POOL=green-pool" >> $GITHUB_OUTPUT
+            echo "NEW_POOL=blue-pool" >> $GITHUB_OUTPUT
             echo "Currently active: GREEN, will deploy to BLUE"
           fi
 
@@ -383,40 +400,45 @@ jobs:
           if timeout 10 curl -s -f "https://$NEW_FQDN/health" > /dev/null; then
             echo " Health check passed!"
           else
-            echo "  Quick health check failed or timed out"
+            echo " Quick health check failed or timed out"
             echo "Continuing anyway - Azure Container Apps will handle health probing"
           fi
 
       - name: Switch traffic in Azure Front Door
         run: |
-          # Update Front Door to route 100% traffic to the new environment
-          az network front-door routing-rule update \
+          # Update Front Door Standard/Premium to route 100% traffic to the new environment
+          echo " Switching traffic to ${{ steps.detect-env.outputs.NEW_POOL }}..."
+          
+          az afd route update \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --front-door-name "${{ env.FRONT_DOOR_NAME }}" \
-            --name "bp-routing-rule" \
-            --backend-pool "${{ steps.detect-env.outputs.NEW_BACKEND }}"
+            --profile-name "${{ env.FRONT_DOOR_NAME }}" \
+            --endpoint-name "${{ env.FRONT_DOOR_ENDPOINT }}" \
+            --route-name "${{ env.FRONT_DOOR_ROUTE }}" \
+            --origin-group "${{ steps.detect-env.outputs.NEW_POOL }}"
           
           echo " Traffic switched to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
 
       - name: Verify traffic switch
         run: |
-          # Get Front Door endpoint
-          FD_ENDPOINT=$(az network front-door frontend-endpoint list \
+          # Get Front Door endpoint hostname
+          FD_ENDPOINT=$(az afd endpoint show \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --front-door-name "${{ env.FRONT_DOOR_NAME }}" \
-            --query "[0].hostName" \
+            --profile-name "${{ env.FRONT_DOOR_NAME }}" \
+            --endpoint-name "${{ env.FRONT_DOOR_ENDPOINT }}" \
+            --query "hostName" \
             --output tsv)
           
           echo " Front Door URL: https://$FD_ENDPOINT"
           
           # Quick verification that Front Door is responding
-          sleep 5
+          sleep 10  # Give Front Door time to propagate changes
           
-          if timeout 10 curl -s -f "https://$FD_ENDPOINT/health" > /dev/null; then
-            echo " Front Door is responding!"
+          echo " Verifying Front Door is responding..."
+          if timeout 15 curl -s -f "https://$FD_ENDPOINT/health" > /dev/null; then
+            echo " Front Door is responding correctly!"
           else
-            echo "  Front Door health check failed or timed out"
-            echo "This might be normal - DNS propagation can take a few minutes"
+            echo " Front Door health check failed or timed out"
+            echo "Note: This might be normal - routing changes can take a few minutes to propagate globally"
           fi
 
       - name: Clean up old environment
