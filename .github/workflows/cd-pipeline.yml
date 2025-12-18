@@ -51,7 +51,6 @@ jobs:
           echo "docker-tag=$TAG" >> $GITHUB_OUTPUT
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "Using tag: $TAG"
-
       - name: Restore dependencies
         run: dotnet restore ./bp-calculator.sln
 
@@ -86,7 +85,6 @@ jobs:
           
           echo "Image successfully pushed: $FULL_IMAGE_NAME"
           echo "Latest tag also updated: $LATEST_IMAGE"
-
   # =====================
   # PERFORMANCE & SECURITY TESTING
   # =====================
@@ -130,7 +128,6 @@ jobs:
             echo "Waiting for application... Attempt $i/12"
             sleep 5
           done
-
       - name: Install k6 for performance testing
         run: |
           sudo apt-get update
@@ -140,17 +137,14 @@ jobs:
           echo "deb [signed-by=/etc/apt/keyrings/k6.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
-
       - name: Run Health Check Performance Test
         run: |
           echo "Starting Health Check Performance Test..."
           k6 run ./PerformanceTests/health-check-test.js
-
       - name: Install security tools
         run: |
           sudo apt-get update
           sudo apt-get install -y nmap curl
-
       - name: Security Tests
         run: |
           echo "Running security tests..."
@@ -164,12 +158,10 @@ jobs:
           curl -X POST http://localhost:8080/api/bmi/calculate \
             -H "Content-Type: application/json" \
             -d '{"Weight": "70 UNION SELECT", "Height": 1.75}' || echo "SQL injection test passed"
-
       - name: Cleanup test container
         run: |
           docker stop bp-test || true
           docker rm bp-test || true
-
   # =====================
   # QA DEPLOYMENT (Single Environment)
   # =====================
@@ -181,10 +173,10 @@ jobs:
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Deploy to QA Container App
         run: |
@@ -205,7 +197,6 @@ jobs:
             --min-replicas 1 \
             --max-replicas 3 \
             --env-vars ASPNETCORE_ENVIRONMENT=QA
-
       - name: Verify QA deployment
         run: |
           FQDN=$(az containerapp show \
@@ -218,7 +209,6 @@ jobs:
           
           sleep 30
           curl -f "https://$FQDN/health" || (echo "QA deployment health check failed" && exit 1)
-
   # =====================
   # PRODUCTION BLUE-GREEN DEPLOYMENT
   # =====================
@@ -233,6 +223,7 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Determine active environment
         id: detect-env
@@ -258,7 +249,6 @@ jobs:
             echo "NEW_BACKEND=blue-pool" >> $GITHUB_OUTPUT
             echo "Currently active: GREEN, will deploy to BLUE"
           fi
-
       - name: Deploy to inactive environment
         run: |
           TAG="${{ needs.continuous-integration.outputs.docker-tag }}"
@@ -278,7 +268,6 @@ jobs:
             --min-replicas 2 \
             --max-replicas 5 \
             --env-vars ASPNETCORE_ENVIRONMENT=Production
-
       - name: Test new deployment
         run: |
           # Get the FQDN of the new deployment
@@ -304,7 +293,7 @@ jobs:
                 -H "Content-Type: application/json" \
                 -d '{"Systolic": 120, "Diastolic": 80}'
               
-              curl -X POST "https://$NEW_FDOOR_NAME/api/bmi/calculate" \
+              curl -X POST "https://$NEW_FQDN/api/bmi/calculate" \
                 -H "Content-Type: application/json" \
                 -d '{"Weight": 70, "Height": 1.75}'
               
@@ -314,7 +303,6 @@ jobs:
             echo "Waiting for new deployment... Attempt $i/10"
             sleep 10
           done
-
       - name: Switch traffic in Azure Front Door
         run: |
           # Update Front Door to route 100% traffic to the new environment
@@ -325,7 +313,6 @@ jobs:
             --backend-pool "${{ steps.detect-env.outputs.NEW_BACKEND }}"
           
           echo "Traffic switched to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
-
       - name: Verify traffic switch
         run: |
           # Get Front Door endpoint
@@ -341,7 +328,6 @@ jobs:
           sleep 10
           curl -f "https://$FD_ENDPOINT/health" || (echo "Front Door health check failed" && exit 1)
           echo "Traffic successfully routed through Front Door"
-
       - name: Clean up old environment
         run: |
           # Optionally, update the old environment with the new image for next deployment
