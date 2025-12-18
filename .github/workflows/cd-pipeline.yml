@@ -17,7 +17,7 @@ on:
 env:
   AZURE_RESOURCE_GROUP: 'bp-calculator-rg'
   AZURE_LOCATION: 'eastus'
-  CONTAINER_APP_ENVIRONMENT: 'bp-calculator-env-qa'  # CHANGED: Use the actual environment name
+  CONTAINER_APP_ENVIRONMENT: 'bp-calculator-env-qa'
   CONTAINER_APP_NAME: 'bp-calculator-app'
   FRONT_DOOR_NAME: 'bp-calculator-fd'
   ACR_NAME: 'bpcalculatoracr'
@@ -155,14 +155,14 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"Systolic": "120 OR 1=1", "Diastolic": 80}' || echo "SQL injection test passed"
           
-          curl -X POST http/localhost:8080/api/bmi/calculate \
+          curl -X POST http://localhost:8080/api/bmi/calculate \
             -H "Content-Type: application/json" \
             -d '{"Weight": "70 UNION SELECT", "Height": 1.75}' || echo "SQL injection test passed"
       - name: Cleanup test container
         run: |
           docker stop bp-test || true
           docker rm bp-test || true
-    # =====================
+  # =====================
   # QA DEPLOYMENT (Single Environment)
   # =====================
   deploy-qa:
@@ -189,7 +189,7 @@ jobs:
               --name "${{ env.CONTAINER_APP_NAME }}-qa" \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --image "$FULL_IMAGE_NAME" \
-              --env-vars ASPNETCORE_ENVIRONMENT=QA
+              --set-env-vars ASPNETCORE_ENVIRONMENT=QA
           else
             echo "Creating new QA Container App..."
             az containerapp create \
@@ -256,18 +256,17 @@ jobs:
           for i in {1..15}; do
             echo "Health check attempt $i/15..."
             if curl -s -f "https://$FQDN/health" > /dev/null; then
-              echo " QA deployment is healthy!"
+              echo "QA deployment is healthy!"
               exit 0
             fi
             echo "Health check failed, retrying in 10 seconds..."
             sleep 10
           done
           
-          echo " QA deployment health check failed after 150 seconds"
+          echo "QA deployment health check failed after 150 seconds"
           echo "Container App logs:"
           az containerapp logs show --name "${{ env.CONTAINER_APP_NAME }}-qa" --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" --tail 50
           exit 1
-          
   # =====================
   # PRODUCTION BLUE-GREEN DEPLOYMENT
   # =====================
@@ -312,26 +311,36 @@ jobs:
           
           echo "Deploying image: $FULL_IMAGE_NAME to ${{ steps.detect-env.outputs.NEW_ENV }} environment"
           
-          # Use the SAME environment for production (bp-calculator-env-qa)
-          az containerapp create \
-            --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "$FULL_IMAGE_NAME" \
-            --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
-            --target-port 8080 \
-            --ingress external \
-            --cpu 1.0 \
-            --memory 2.0Gi \
-            --min-replicas 2 \
-            --max-replicas 5 \
-            --env-vars ASPNETCORE_ENVIRONMENT=Production
+          # Check if Container App already exists
+          if az containerapp show --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" --query "name" -o tsv 2>/dev/null; then
+            echo "Updating existing ${{ steps.detect-env.outputs.NEW_ENV }} Container App..."
+            az containerapp update \
+              --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --image "$FULL_IMAGE_NAME" \
+              --set-env-vars ASPNETCORE_ENVIRONMENT=Production
+          else
+            echo "Creating new ${{ steps.detect-env.outputs.NEW_ENV }} Container App..."
+            az containerapp create \
+              --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --image "$FULL_IMAGE_NAME" \
+              --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
+              --target-port 8080 \
+              --ingress external \
+              --cpu 1.0 \
+              --memory 2.0Gi \
+              --min-replicas 2 \
+              --max-replicas 5 \
+              --env-vars ASPNETCORE_ENVIRONMENT=Production
+          fi
       - name: Test new deployment
         run: |
           # Get the FQDN of the new deployment
           NEW_FQDN=$(az containerapp show \
             --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.NEW_ENV }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --query "configuration.ingress.fqdn" \
+            --query "properties.configuration.ingress.fqdn" \
             --output tsv)
           
           echo "Testing new deployment at: https://$NEW_FQDN"
@@ -396,7 +405,7 @@ jobs:
             --name "${{ env.CONTAINER_APP_NAME }}-${{ steps.detect-env.outputs.CURRENT_ENV }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --image "$FULL_IMAGE_NAME" \
-            --environment "${{ env.CONTAINER_APP_ENVIRONMENT }}" \
+            --set-env-vars ASPNETCORE_ENVIRONMENT=Production \
             --cpu 1.0 \
             --memory 2.0Gi \
             --min-replicas 1 \
