@@ -25,41 +25,46 @@ namespace BPCalculator.Pages
             BP = new BloodPressure() { Systolic = 100, Diastolic = 60 };
             Category = null;
             
-            // Check for result from redirect
+            // 🔧 FIX: Retrieve TempData values after redirect
             if (TempData["CategoryResult"] is string category)
             {
                 Category = category;
-                TempData.Keep("CategoryResult"); // Keep for next request
+                TempData.Keep("CategoryResult"); // Keep for display
             }
             
-            // Check for error from redirect
             if (TempData["ErrorMessage"] is string error)
             {
                 ModelState.AddModelError("", error);
                 TempData.Keep("ErrorMessage");
             }
+            
+            if (TempData["ValidationError"] is string validationError)
+            {
+                ModelState.AddModelError("", validationError);
+                TempData.Keep("ValidationError");
+            }
         }
 
         public IActionResult OnPost()
         {
-            // Check validation FIRST to prevent auto-400
+            // 🔧 FIX: Check validation FIRST
             if (!ModelState.IsValid)
             {
-                // Redirect to fresh page on validation error
-                return RedirectToPage();
+                TempData["ValidationError"] = "Please check your input values";
+                return RedirectToPage(); // Redirect instead of Page()
             }
 
             // Your custom validation
             if (!(BP.Systolic > BP.Diastolic))
             {
                 TempData["ErrorMessage"] = "Systolic must be greater than Diastolic";
-                return RedirectToPage();
+                return RedirectToPage(); // Redirect instead of Page()
             }
 
             // Compute category
             Category = BP.Category.ToString();
             
-            // Store result to show after redirect
+            // 🔧 FIX: Store result for redirect
             TempData["CategoryResult"] = Category;
 
             // Logging
@@ -68,7 +73,7 @@ namespace BPCalculator.Pages
                 BP.Systolic, BP.Diastolic, Category
             );
 
-            // Always redirect after POST
+            // 🔧 FIX: ALWAYS redirect after POST
             return RedirectToPage();
         }
     }
