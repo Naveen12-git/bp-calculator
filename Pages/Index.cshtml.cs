@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
-using BPCalculator;
+using BPCalculator; // Add this
 
 namespace BPCalculator.Pages
 {
@@ -22,36 +22,19 @@ namespace BPCalculator.Pages
         public void OnGet()
         {
             BP = new BloodPressure() { Systolic = 100, Diastolic = 60 };
-            Category = null;
-            
-            if (TempData["CategoryResult"] is string category)
-            {
-                Category = category;
-                TempData.Keep("CategoryResult");
-            }
-            
-            if (TempData["ErrorMessage"] is string error)
-            {
-                ModelState.AddModelError("", error);
-                TempData.Keep("ErrorMessage");
-            }
         }
 
         public IActionResult OnPost()
         {
-            if (!ModelState.IsValid)
-            {
-                return RedirectToPage();
-            }
-
+            // Validate systolic always > diastolic
             if (!(BP.Systolic > BP.Diastolic))
             {
-                TempData["ErrorMessage"] = "Systolic must be greater than Diastolic";
-                return RedirectToPage();
+                ModelState.AddModelError("", "Systolic must be greater than Diastolic");
+                return Page();
             }
 
+            // Compute category - Now using the enum-based property
             Category = BP.Category.ToString();
-            TempData["CategoryResult"] = Category;
 
             // Logging
             _logger.LogInformation(
@@ -59,7 +42,9 @@ namespace BPCalculator.Pages
                 BP.Systolic, BP.Diastolic, Category
             );
 
-            return RedirectToPage();
+            return Page();
         }
     }
+
+    // REMOVE the duplicate BloodPressure class from here
 }
