@@ -12,6 +12,7 @@
         <form method="post" id="form1" autocomplete="off">
             @Html.AntiForgeryToken()
             
+            <!-- Show ALL validation errors -->
             <div asp-validation-summary="All" class="text-danger"></div>
 
             <div class="form-group">
@@ -27,14 +28,14 @@
             </div>
 
             <div class="form-group">
-                <input type="submit" value="Submit" class="btn btn-primary" id="submitBtn" />
+                <input type="submit" value="Submit" class="btn btn-primary" />
             </div>
 
-            @* Show Category After POST *@
+            <!-- Show category result (from TempData) -->
             @if (Model.Category != null)
             {
                 <div class="alert alert-info mt-3">
-                    <strong>Category:</strong> @Model.Category
+                    <strong>Result:</strong> @Model.Category
                 </div>
             }
         </form>
@@ -42,37 +43,6 @@
 </div>
 
 @section Scripts {
+    <!-- Keep only validation scripts -->
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-    
-    <script>
-        // Force page refresh after form submission (keeps form values)
-        document.getElementById('form1').addEventListener('submit', function(e) {
-            // Save form values before submission
-            sessionStorage.setItem('formSubmitted', 'true');
-            sessionStorage.setItem('systolicValue', document.querySelector('[name="BP.Systolic"]').value);
-            sessionStorage.setItem('diastolicValue', document.querySelector('[name="BP.Diastolic"]').value);
-            
-            // Disable button to prevent double-click
-            document.getElementById('submitBtn').disabled = true;
-            document.getElementById('submitBtn').value = 'Processing...';
-        });
-        
-        // Restore form values after page refresh
-        window.addEventListener('load', function() {
-            if (sessionStorage.getItem('formSubmitted') === 'true') {
-                // Restore the submitted values
-                document.querySelector('[name="BP.Systolic"]').value = sessionStorage.getItem('systolicValue') || '';
-                document.querySelector('[name="BP.Diastolic"]').value = sessionStorage.getItem('diastolicValue') || '';
-                
-                // Clear the stored values
-                sessionStorage.removeItem('formSubmitted');
-                sessionStorage.removeItem('systolicValue');
-                sessionStorage.removeItem('diastolicValue');
-                
-                // Re-enable submit button
-                document.getElementById('submitBtn').disabled = false;
-                document.getElementById('submitBtn').value = 'Submit';
-            }
-        });
-    </script>
 }
